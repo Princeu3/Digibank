@@ -1,58 +1,15 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { UserButton } from "@clerk/nextjs";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { Shield, CreditCard, BarChart3, Building2 } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-white">
-      {/* Modern Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-sm bg-white/80 py-4 border-b border-gray-100">
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            {/* Updated logo with modern glow effect */}
-            <div className="relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-violet-500 rounded-xl blur-md opacity-70"></div>
-              <div className="relative flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-500 rounded-xl shadow-md">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-gray-800 tracking-tight">DigiBank</h1>
-              <span className="text-[10px] text-blue-600 -mt-1 font-medium tracking-wider uppercase">Secure Banking</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <SignedOut>
-              <SignInButton mode="modal">
-                <Button variant="default" size="sm" className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 border-0 shadow-md hover:shadow-lg transition-all duration-200">
-                  Sign In
-                </Button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton 
-                afterSignOutUrl="/" 
-                appearance={{
-                  elements: {
-                    avatarBox: {
-                      width: '70px',
-                      height: '70px'
-                    }
-                  }
-                }}
-              />
-            </SignedIn>
-          </div>
-        </div>
-      </header>
-
+    <div className="flex flex-col">
       {/* Main Content */}
-      <main className="flex-1">
+      <div>
         {/* Hero Section with more modern styling */}
         <section className="py-20 container mx-auto px-6 relative">
           <div className="absolute top-0 left-0 w-64 h-64 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
@@ -95,7 +52,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Smart Banking</h3>
                 <p className="text-gray-600">
-                  Manage accounts with powerful tools and insights.
+                  Manage Link Accounts and Transfer Funds with ease.
                 </p>
               </div>
               <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
@@ -119,30 +76,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </main>
-
-      {/* Modern Footer */}
-      <footer className="bg-white py-12 border-t border-gray-100">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center gap-3 mb-6 md:mb-0">
-              <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-xl shadow-sm">
-                <Building2 className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-gray-800 font-medium">DigiBank</span>
-            </div>
-            <div className="flex gap-8">
-              <a href="#" className="text-gray-500 hover:text-blue-500 transition-colors duration-200 text-sm">About</a>
-              <a href="#" className="text-gray-500 hover:text-blue-500 transition-colors duration-200 text-sm">Security</a>
-              <a href="#" className="text-gray-500 hover:text-blue-500 transition-colors duration-200 text-sm">Support</a>
-              <a href="#" className="text-gray-500 hover:text-blue-500 transition-colors duration-200 text-sm">Legal</a>
-            </div>
-            <div className="mt-6 md:mt-0">
-              <p className="text-gray-400 text-sm">© {new Date().getFullYear()} DigiBank</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

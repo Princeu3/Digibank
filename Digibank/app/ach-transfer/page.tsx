@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, AlertCircle, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,27 +193,16 @@ export default function ACHTransfer() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen p-4">
+    <div className="flex flex-col items-center min-h-full py-8">
       <div className="w-full max-w-4xl p-4">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center mb-8">
+          <Link href="/dashboard" className="mr-4">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
           <h1 className="text-3xl font-bold">ACH Transfer</h1>
-          <UserButton 
-            afterSignOutUrl="/" 
-            appearance={{
-              elements: {
-                avatarBox: {
-                  width: '70px',
-                  height: '70px'
-                }
-              }
-            }}
-          />
         </div>
-
-        <Link href="/dashboard" className="flex items-center text-blue-600 mb-6 hover:underline">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Link>
 
         {!hasLinkedAccounts && !isLoading && (
           <Alert className="mb-6 border-amber-200 bg-amber-50">

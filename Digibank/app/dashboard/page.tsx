@@ -1,4 +1,3 @@
-import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,21 +5,10 @@ import { Building2, ArrowRightLeft } from "lucide-react";
 
 export default function Dashboard() {
   return (
-    <div className="flex flex-col items-center min-h-screen p-4">
+    <div className="flex flex-col items-center min-h-full py-8">
       <div className="w-full max-w-4xl p-4">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <UserButton 
-            afterSignOutUrl="/" 
-            appearance={{
-              elements: {
-                avatarBox: {
-                  width: '70px',
-                  height: '70px'
-                }
-              }
-            }}
-          />
         </div>
         
         <Card className="mb-8">
