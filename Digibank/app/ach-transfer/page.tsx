@@ -37,8 +37,8 @@ const accountService = {
       // Store defaults in localStorage
       localStorage.setItem(`accounts-${userId}`, JSON.stringify(defaultAccounts));
       return defaultAccounts;
-    } catch (error) {
-      console.error("Error fetching accounts:", error);
+    } catch (err) {
+      console.error("Error fetching accounts:", err);
       return [];
     }
   },

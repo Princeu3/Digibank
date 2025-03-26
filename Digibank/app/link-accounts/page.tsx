@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { ArrowLeft, Building2, Plus, ExternalLink, ArrowRightLeft, CheckCircle, Trash2, X, CreditCard, AlertCircle } from "lucide-react";
+import { ArrowLeft, Building2, Plus, ExternalLink, ArrowRightLeft, CheckCircle, Trash2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -56,8 +53,8 @@ const accountService = {
       // Store defaults in localStorage
       localStorage.setItem(`accounts-${userId}`, JSON.stringify(defaultAccounts));
       return defaultAccounts;
-    } catch (error) {
-      console.error("Error fetching accounts:", error);
+    } catch (err) {
+      console.error("Error fetching accounts:", err);
       return [];
     }
   },
@@ -88,9 +85,9 @@ const accountService = {
       localStorage.setItem(`accounts-${userId}`, JSON.stringify(updatedAccounts));
       
       return newAccount;
-    } catch (error) {
-      console.error("Error adding account:", error);
-      throw error;
+    } catch (err) {
+      console.error("Error adding account:", err);
+      throw err;
     }
   },
   
@@ -112,9 +109,9 @@ const accountService = {
       localStorage.setItem(`accounts-${userId}`, JSON.stringify(updatedAccounts));
       
       return { success: true, accountId };
-    } catch (error) {
-      console.error("Error removing account:", error);
-      throw error;
+    } catch (err) {
+      console.error("Error removing account:", err);
+      throw err;
     }
   }
 };
@@ -153,8 +150,8 @@ export default function LinkAccounts() {
         const accounts = await accountService.getAccounts(user.id);
         setLinkedAccounts(accounts);
         setLoadError("");
-      } catch (error) {
-        console.error("Failed to load accounts:", error);
+      } catch (err) {
+        console.error("Failed to load accounts:", err);
         setLoadError("Failed to load your linked accounts. Please try again.");
         toast({
           title: "Error loading accounts",
@@ -230,7 +227,7 @@ export default function LinkAccounts() {
       // Reset form and close dialog
       resetForm();
       setIsAddAccountOpen(false);
-    } catch (error) {
+    } catch (err) {
       setFormError("Failed to link account. Please try again.");
       toast({
         title: "Error linking account",
@@ -269,7 +266,7 @@ export default function LinkAccounts() {
       
       // Close dialog
       setIsAddAccountOpen(false);
-    } catch (error) {
+    } catch (err) {
       toast({
         title: "Error linking with Plaid",
         description: "We couldn't connect to your bank through Plaid. Please try again.",
@@ -309,7 +306,7 @@ export default function LinkAccounts() {
       // Close dialog
       setShowRemoveConfirm(false);
       setAccountToRemove(null);
-    } catch (error) {
+    } catch (err) {
       toast({
         title: "Error removing account",
         description: "We couldn't remove your account. Please try again.",
