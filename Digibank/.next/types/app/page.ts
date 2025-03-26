@@ -1,4 +1,4 @@
-// File: /Users/upadhyayps/Library/CloudStorage/OneDrive-beloit.edu/Documents/Digitenium/TikMusic/Digibank/app/page.tsx
+// File: /Users/upadhyayps/Library/CloudStorage/OneDrive-beloit.edu/Documents/Digitenium/Digibank/app/page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
