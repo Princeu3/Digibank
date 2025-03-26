@@ -27,4 +27,9 @@ yarn-error.log*
 
 # OS files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Local env files
+.env*.local
+# Vercel
+.vercel 
