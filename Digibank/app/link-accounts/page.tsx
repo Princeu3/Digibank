@@ -21,12 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 // API service for account operations
@@ -63,16 +57,6 @@ const accountService = {
   // Add a new account
   async addAccount(userId: string, accountData: any) {
     try {
-      // In a real app, this would be an API call
-      // const response = await fetch('/api/accounts', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ userId, ...accountData })
-      // });
-      // if (!response.ok) throw new Error('Failed to add account');
-      // return await response.json();
-      
-      // For demo, add to localStorage
       const accounts = await this.getAccounts(userId);
       const newId = Math.max(0, ...accounts.map(a => a.id)) + 1;
       
@@ -137,6 +121,7 @@ export default function LinkAccounts() {
   const [accountType, setAccountType] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [routingNumber, setRoutingNumber] = useState("");
+  const [bankHolderName, setBankHolderName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [accountToRemove, setAccountToRemove] = useState(null);
@@ -173,6 +158,7 @@ export default function LinkAccounts() {
     setAccountType("");
     setAccountNumber("");
     setRoutingNumber("");
+    setBankHolderName("");
     setFormError("");
   };
 
@@ -185,7 +171,7 @@ export default function LinkAccounts() {
     setFormError("");
     
     // Validate inputs
-    if (!bankName.trim() || !accountType || !accountNumber.trim() || !routingNumber.trim()) {
+    if (!bankName.trim() || !accountType || !accountNumber.trim() || !routingNumber.trim() || !bankHolderName.trim()) {
       setFormError("All fields are required");
       setIsSubmitting(false);
       return;
@@ -233,44 +219,6 @@ export default function LinkAccounts() {
       toast({
         title: "Error linking account",
         description: "We couldn't link your account. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  // Handle Plaid connection
-  const handlePlaidConnect = async () => {
-    if (!user) return;
-    
-    setIsSubmitting(true);
-    
-    try {
-      // In a real app, this would integrate with Plaid API
-      // For demo, simulate adding an account
-      const newAccount = await accountService.addAccount(user.id, {
-        name: "Bank of America",
-        accountType: "Checking",
-        accountNumber: "****7890"
-      });
-      
-      // Update local state
-      setLinkedAccounts([...linkedAccounts, newAccount]);
-      
-      // Show success message
-      toast({
-        title: "Account linked via Plaid",
-        description: "Bank of America (Checking) has been added to your linked accounts.",
-        variant: "default"
-      });
-      
-      // Close dialog
-      setIsAddAccountOpen(false);
-    } catch (err) {
-      toast({
-        title: "Error linking with Plaid",
-        description: "We couldn't connect to your bank through Plaid. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -407,128 +355,93 @@ export default function LinkAccounts() {
                   <DialogHeader>
                     <DialogTitle>Link a Bank Account</DialogTitle>
                     <DialogDescription>
-                      Connect a new external bank account to enable transfers.
+                      Enter your bank account details to enable transfers.
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <Tabs defaultValue="plaid" className="mt-2">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="plaid">Connect with Plaid</TabsTrigger>
-                      <TabsTrigger value="manual">Enter Manually</TabsTrigger>
-                    </TabsList>
+                  <form onSubmit={handleManualAdd}>
+                    {formError && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Error</AlertTitle>
+                        <AlertDescription>{formError}</AlertDescription>
+                      </Alert>
+                    )}
                     
-                    {/* Plaid tab content */}
-                    <TabsContent value="plaid" className="space-y-4 mt-4">
+                    <div className="space-y-4">
                       <div className="space-y-2">
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                          <div className="flex items-start">
-                            <ExternalLink className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <h4 className="font-medium text-blue-800">Secure connection with Plaid</h4>
-                              <p className="text-sm text-blue-700 mt-1">
-                                We use Plaid to securely connect to over 9,000 banks and credit unions without storing your credentials.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="rounded-lg border border-gray-200 p-4 text-center">
-                          <Building2 className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                          <h4 className="font-medium">How it works:</h4>
-                          <ol className="text-sm text-gray-600 text-left mt-2 space-y-2 list-decimal list-inside">
-                            <li>Click "Connect with Plaid" below</li>
-                            <li>Select your bank from the list</li>
-                            <li>Log in with your bank credentials</li>
-                            <li>Select which accounts to link</li>
-                          </ol>
-                        </div>
+                        <Label htmlFor="bank-holder-name">Account Holder Name</Label>
+                        <Input 
+                          id="bank-holder-name" 
+                          placeholder="Enter account holder name"
+                          value={bankHolderName}
+                          onChange={(e) => setBankHolderName(e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bank-name">Bank Name</Label>
+                        <Input 
+                          id="bank-name" 
+                          placeholder="Enter bank name"
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          disabled={isSubmitting}
+                        />
                       </div>
                       
+                      <div className="space-y-2">
+                        <Label htmlFor="account-type">Account Type</Label>
+                        <Select value={accountType} onValueChange={setAccountType} disabled={isSubmitting}>
+                          <SelectTrigger id="account-type">
+                            <SelectValue placeholder="Select account type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Checking">Checking</SelectItem>
+                            <SelectItem value="Savings">Savings</SelectItem>
+                            <SelectItem value="Investment">Investment</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="account-number">Account Number</Label>
+                        <Input 
+                          id="account-number" 
+                          placeholder="Enter account number"
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="routing-number">Routing Number</Label>
+                        <Input 
+                          id="routing-number" 
+                          placeholder="9-digit routing number"
+                          value={routingNumber}
+                          onChange={(e) => setRoutingNumber(e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+                    
+                    <DialogFooter className="mt-4">
                       <Button 
-                        className="w-full" 
-                        onClick={handlePlaidConnect}
+                        variant="outline" 
+                        type="button"
+                        onClick={() => setIsAddAccountOpen(false)}
                         disabled={isSubmitting}
                       >
-                        {isSubmitting ? "Connecting..." : "Connect with Plaid"}
+                        Cancel
                       </Button>
-                    </TabsContent>
-                    
-                    {/* Manual entry tab content */}
-                    <TabsContent value="manual" className="space-y-4 mt-4">
-                      <form onSubmit={handleManualAdd}>
-                        {formError && (
-                          <Alert variant="destructive" className="mb-4">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Error</AlertTitle>
-                            <AlertDescription>{formError}</AlertDescription>
-                          </Alert>
-                        )}
-                        
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="bank-name">Bank Name</Label>
-                            <Input 
-                              id="bank-name" 
-                              placeholder="Enter bank name"
-                              value={bankName}
-                              onChange={(e) => setBankName(e.target.value)}
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="account-type">Account Type</Label>
-                            <Select value={accountType} onValueChange={setAccountType} disabled={isSubmitting}>
-                              <SelectTrigger id="account-type">
-                                <SelectValue placeholder="Select account type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Checking">Checking</SelectItem>
-                                <SelectItem value="Savings">Savings</SelectItem>
-                                <SelectItem value="Investment">Investment</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="account-number">Account Number</Label>
-                            <Input 
-                              id="account-number" 
-                              placeholder="Enter account number"
-                              value={accountNumber}
-                              onChange={(e) => setAccountNumber(e.target.value)}
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="routing-number">Routing Number</Label>
-                            <Input 
-                              id="routing-number" 
-                              placeholder="9-digit routing number"
-                              value={routingNumber}
-                              onChange={(e) => setRoutingNumber(e.target.value)}
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                        </div>
-                        
-                        <DialogFooter className="mt-4">
-                          <Button 
-                            variant="outline" 
-                            type="button"
-                            onClick={() => setIsAddAccountOpen(false)}
-                            disabled={isSubmitting}
-                          >
-                            Cancel
-                          </Button>
-                          <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Linking..." : "Link Account"}
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </TabsContent>
-                  </Tabs>
+                      <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? "Linking..." : "Link Account"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
                 </DialogContent>
               </Dialog>
               
