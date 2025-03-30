@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import AIAgentFeedback from "@/components/ai-agent-feedback";
+import { AgentResponse, logAgentActivity } from "@/lib/ai-agent";
 
 // Account service for fetching linked accounts
 const accountService = {
@@ -24,9 +26,11 @@ const accountService = {
       // return await response.json();
       
       // For demo, return mock data from localStorage or default
-      const storedAccounts = localStorage.getItem(`accounts-${userId}`);
-      if (storedAccounts) {
-        return JSON.parse(storedAccounts);
+      if (typeof window !== 'undefined') {
+        const storedAccounts = localStorage.getItem(`accounts-${userId}`);
+        if (storedAccounts) {
+          return JSON.parse(storedAccounts);
+        }
       }
       
       // Default accounts
@@ -36,7 +40,9 @@ const accountService = {
       ];
       
       // Store defaults in localStorage
-      localStorage.setItem(`accounts-${userId}`, JSON.stringify(defaultAccounts));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`accounts-${userId}`, JSON.stringify(defaultAccounts));
+      }
       return defaultAccounts;
     } catch (err) {
       console.error("Error fetching accounts:", err);
@@ -57,18 +63,28 @@ const accountService = {
       // return await response.json();
       
       // For demo, just save to localStorage
-      const transfers = JSON.parse(localStorage.getItem(`transfers-${userId}`) || '[]');
-      const newTransfer = {
-        id: transfers.length + 1,
+      if (typeof window !== 'undefined') {
+        const transfers = JSON.parse(localStorage.getItem(`transfers-${userId}`) || '[]');
+        const newTransfer = {
+          id: transfers.length + 1,
+          ...transferData,
+          status: "pending",
+          createdAt: new Date().toISOString()
+        };
+        
+        transfers.push(newTransfer);
+        localStorage.setItem(`transfers-${userId}`, JSON.stringify(transfers));
+        
+        return newTransfer;
+      }
+      
+      // Return mock data if localStorage is not available
+      return {
+        id: 1,
         ...transferData,
         status: "pending",
         createdAt: new Date().toISOString()
       };
-      
-      transfers.push(newTransfer);
-      localStorage.setItem(`transfers-${userId}`, JSON.stringify(transfers));
-      
-      return newTransfer;
     } catch (error) {
       console.error("Error saving transfer:", error);
       throw error;
@@ -91,6 +107,10 @@ export default function ACHTransfer() {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for AI agent
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AgentResponse | null>(null);
 
   const hasLinkedAccounts = linkedAccounts.length > 0;
 
@@ -119,6 +139,55 @@ export default function ACHTransfer() {
     
     fetchAccounts();
   }, [user, toast]);
+
+  // Function to analyze transfer with AI agent
+  const analyzeTransferWithAI = async (transferData) => {
+    setIsAiAnalyzing(true);
+    
+    try {
+      const response = await fetch('/api/ai-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user!.id,
+          ...transferData
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to analyze transfer');
+      }
+      
+      const analysisResult = await response.json();
+      setAiAnalysis(analysisResult);
+      
+      // Log the AI agent activity - now properly awaited since it's async
+      await logAgentActivity(user!.id, transferData, analysisResult);
+      
+      // If high risk, show a toast alert
+      if (analysisResult.risk_assessment === 'high') {
+        toast({
+          title: "High risk transfer detected",
+          description: analysisResult.recommendation,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("AI agent analysis failed:", error);
+      toast({
+        title: "AI analysis failed",
+        description: "We couldn't analyze this transfer for security concerns. Please review carefully.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  // Handle dismissing AI feedback
+  const dismissAiFeedback = () => {
+    setAiAnalysis(null);
+  };
 
   // Handle transfer submission
   const handleTransfer = async (e) => {
@@ -153,8 +222,7 @@ export default function ACHTransfer() {
       const fromAccountDetails = linkedAccounts.find(acc => `account-${acc.id}` === fromAccount);
       const toAccountDetails = linkedAccounts.find(acc => `account-${acc.id}` === toAccount);
       
-      // Save the transfer record
-      await accountService.saveTransfer(user.id, {
+      const transferData = {
         fromAccount: {
           id: fromAccountDetails.id,
           name: fromAccountDetails.name,
@@ -169,7 +237,13 @@ export default function ACHTransfer() {
         },
         amount: amountNum.toFixed(2),
         memo: memo || "Transfer"
-      });
+      };
+      
+      // Save the transfer record
+      await accountService.saveTransfer(user.id, transferData);
+      
+      // Trigger AI analysis
+      await analyzeTransferWithAI(transferData);
       
       // Show success message
       toast({
@@ -220,6 +294,14 @@ export default function ACHTransfer() {
               </div>
             </AlertDescription>
           </Alert>
+        )}
+        
+        {(isAiAnalyzing || aiAnalysis) && (
+          <AIAgentFeedback 
+            feedback={aiAnalysis} 
+            isLoading={isAiAnalyzing} 
+            onClose={dismissAiFeedback} 
+          />
         )}
 
         <Card className="mb-8">
