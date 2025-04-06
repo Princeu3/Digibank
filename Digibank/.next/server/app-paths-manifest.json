@@ -1,5 +1,6 @@
 {
   "/api/ai-agent/route": "app/api/ai-agent/route.js",
-  "/ach-transfer/page": "app/ach-transfer/page.js",
-  "/link-accounts/page": "app/link-accounts/page.js"
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/ach-transfer/page": "app/ach-transfer/page.js"
 }

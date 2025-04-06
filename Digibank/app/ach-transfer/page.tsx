@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import AIAgentFeedback from "@/components/ai-agent-feedback";
-import { AgentResponse, logAgentActivity } from "@/lib/ai-agent";
+import { AgentResponse } from "@/lib/ai-agent";
+import { useAgentLogging } from "@/lib/ai-agent-client";
 
 // Account service for fetching linked accounts
 const accountService = {
@@ -25,24 +26,12 @@ const accountService = {
       // if (!response.ok) throw new Error('Failed to fetch accounts');
       // return await response.json();
       
-      // For demo, return mock data from localStorage or default
-      if (typeof window !== 'undefined') {
-        const storedAccounts = localStorage.getItem(`accounts-${userId}`);
-        if (storedAccounts) {
-          return JSON.parse(storedAccounts);
-        }
-      }
-      
-      // Default accounts
+      // For demo, return mock data
       const defaultAccounts = [
         { id: 1, name: "Chase Bank", accountType: "Checking", accountNumber: "****4567", status: "active" },
         { id: 2, name: "Wells Fargo", accountType: "Savings", accountNumber: "****8901", status: "active" },
       ];
       
-      // Store defaults in localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`accounts-${userId}`, JSON.stringify(defaultAccounts));
-      }
       return defaultAccounts;
     } catch (err) {
       console.error("Error fetching accounts:", err);
@@ -62,23 +51,7 @@ const accountService = {
       // if (!response.ok) throw new Error('Failed to save transfer');
       // return await response.json();
       
-      // For demo, just save to localStorage
-      if (typeof window !== 'undefined') {
-        const transfers = JSON.parse(localStorage.getItem(`transfers-${userId}`) || '[]');
-        const newTransfer = {
-          id: transfers.length + 1,
-          ...transferData,
-          status: "pending",
-          createdAt: new Date().toISOString()
-        };
-        
-        transfers.push(newTransfer);
-        localStorage.setItem(`transfers-${userId}`, JSON.stringify(transfers));
-        
-        return newTransfer;
-      }
-      
-      // Return mock data if localStorage is not available
+      // For demo, return mock data
       return {
         id: 1,
         ...transferData,
@@ -95,6 +68,7 @@ const accountService = {
 export default function ACHTransfer() {
   const { user } = useUser();
   const { toast } = useToast();
+  const { logAgentActivity } = useAgentLogging(user?.id || '');
   
   // State for linked accounts and loading
   const [linkedAccounts, setLinkedAccounts] = useState([]);
@@ -161,8 +135,8 @@ export default function ACHTransfer() {
       const analysisResult = await response.json();
       setAiAnalysis(analysisResult);
       
-      // Log the AI agent activity - now properly awaited since it's async
-      await logAgentActivity(user!.id, transferData, analysisResult);
+      // Log the AI agent activity using the hook
+      logAgentActivity(transferData, analysisResult);
       
       // If high risk, show a toast alert
       if (analysisResult.risk_assessment === 'high') {

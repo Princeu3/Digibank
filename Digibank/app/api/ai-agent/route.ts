@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { analyzeTransfer, TransferDetails, AgentResponse } from '@/lib/ai-agent';
+import { analyzeTransfer, TransferDetails, AgentResponse, logAgentActivity } from '@/lib/ai-agent';
 import { unstable_noStore as noStore } from 'next/cache';
 import { getServerEnv } from '@/lib/env';
 
@@ -11,6 +11,10 @@ export async function POST(request: Request) {
   const { GROQ_API_KEY } = await getServerEnv();
   if (!GROQ_API_KEY) {
     console.warn("GROQ_API_KEY not found in environment variables when handling request");
+    return NextResponse.json(
+      { error: 'AI service is currently unavailable.' },
+      { status: 503 }
+    );
   }
   
   try {
@@ -27,6 +31,9 @@ export async function POST(request: Request) {
     
     // Analyze the transfer with the AI agent
     const analysisResult: AgentResponse = await analyzeTransfer(transferData);
+    
+    // Log the server-side activity
+    await logAgentActivity(transferData.userId, transferData, analysisResult);
     
     // Return the analysis result
     return NextResponse.json(analysisResult);

@@ -134,19 +134,4 @@ export async function logAgentActivity(userId: string, transferData: TransferDet
     transferData,
     agentResponse
   });
-  
-  // For demo purposes, store in localStorage (only available in browser)
-  if (typeof window !== 'undefined') {
-    try {
-      const agentLogs = JSON.parse(localStorage.getItem(`agent-logs-${userId}`) || '[]');
-      agentLogs.push({
-        timestamp: new Date().toISOString(),
-        transferData,
-        agentResponse
-      });
-      localStorage.setItem(`agent-logs-${userId}`, JSON.stringify(agentLogs));
-    } catch (error) {
-      console.error('Error storing agent logs in localStorage:', error);
-    }
-  }
 } 
