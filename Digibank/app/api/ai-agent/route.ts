@@ -7,24 +7,41 @@ export async function POST(request: Request) {
   // Ensure environment variables are accessed at runtime
   noStore();
   
-  // Check API key availability - properly await the async function call
-  const { GROQ_API_KEY } = await getServerEnv();
-  if (!GROQ_API_KEY) {
-    console.warn("GROQ_API_KEY not found in environment variables when handling request");
-    return NextResponse.json(
-      { error: 'AI service is currently unavailable.' },
-      { status: 503 }
-    );
-  }
-  
   try {
+    // Check API key availability
+    const { GROQ_API_KEY } = await getServerEnv();
+    if (!GROQ_API_KEY) {
+      console.error("GROQ_API_KEY not found in environment variables");
+      return NextResponse.json(
+        { 
+          error: 'AI service is currently unavailable.',
+          details: 'GROQ API key is missing. Please check your environment configuration.'
+        },
+        { status: 503 }
+      );
+    }
+    
     // Extract transfer data from request
     const transferData: TransferDetails = await request.json();
     
-    // Make sure the required properties are present
-    if (!transferData.userId || !transferData.fromAccount || !transferData.toAccount || !transferData.amount) {
+    // Validate required fields
+    if (!transferData.userId) {
       return NextResponse.json(
-        { error: 'Invalid transfer data. Missing required fields.' },
+        { error: 'User ID is required.' },
+        { status: 400 }
+      );
+    }
+    
+    if (!transferData.fromAccount || !transferData.toAccount) {
+      return NextResponse.json(
+        { error: 'Both source and destination accounts are required.' },
+        { status: 400 }
+      );
+    }
+    
+    if (!transferData.amount) {
+      return NextResponse.json(
+        { error: 'Transfer amount is required.' },
         { status: 400 }
       );
     }
@@ -40,7 +57,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in AI agent API:', error);
     return NextResponse.json(
-      { error: 'Failed to process transfer with AI agent.' },
+      { 
+        error: 'Failed to process transfer with AI agent.',
+        details: error.message || 'An unexpected error occurred'
+      },
       { status: 500 }
     );
   }

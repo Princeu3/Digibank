@@ -16,15 +16,12 @@ async function initGroqClient() {
   const { GROQ_API_KEY } = await getServerEnv();
 
   if (!GROQ_API_KEY) {
-    console.error("GROQ_API_KEY is missing in environment variables");
+    throw new Error("GROQ_API_KEY is missing in environment variables");
   }
-
-  // Log the API key state (for debugging only - remove in production)
-  console.log("API Key Available:", !!GROQ_API_KEY);
 
   // Initialize the Groq client
   return new Groq({
-    apiKey: GROQ_API_KEY || '' // API key must be provided via environment variables
+    apiKey: GROQ_API_KEY
   });
 }
 
@@ -108,18 +105,31 @@ Memo: ${transferData.memo || "No memo provided"}
 
     // Parse the response
     const responseContent = completion.choices[0]?.message?.content || '';
+    if (!responseContent) {
+      throw new Error("Empty response from AI model");
+    }
+
     const parsedResponse = JSON.parse(responseContent) as AgentResponse;
+    
+    // Validate the response structure
+    if (!parsedResponse.risk_assessment || !parsedResponse.reasoning) {
+      throw new Error("Invalid response format from AI model");
+    }
     
     return parsedResponse;
   } catch (error) {
     console.error('Error analyzing transfer with AI agent:', error);
-    // Return a fallback response in case of error
+    // Return a more detailed error response
     return {
-      risk_assessment: 'low',
-      reasoning: 'Unable to complete analysis due to service error.',
-      flags: [],
-      recommendation: 'Proceed with caution.',
-      next_steps: ['Review transaction details manually.']
+      risk_assessment: 'medium',
+      reasoning: `AI analysis failed: ${error.message}`,
+      flags: ['AI service unavailable'],
+      recommendation: 'Please review the transfer manually or try again later.',
+      next_steps: [
+        'Check your internet connection',
+        'Try again in a few minutes',
+        'Contact support if the issue persists'
+      ]
     };
   }
 }

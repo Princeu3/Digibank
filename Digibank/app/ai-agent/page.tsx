@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { ArrowLeft, Brain, AlertTriangle, CheckCircle, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Brain, AlertTriangle, CheckCircle, Info, Loader2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -136,7 +136,27 @@ export default function AIAgentPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-        <p className="text-gray-600">Loading AI Agent Interface...</p>
+        <p className="text-gray-600">Initializing AI Agent Interface...</p>
+      </div>
+    );
+  }
+
+  // Show error state if no current transfer and no history
+  if (!currentTransfer && transferHistory.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Alert className="w-full max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Transfer to Analyze</AlertTitle>
+          <AlertDescription>
+            Please initiate a transfer from the dashboard to use the AI Agent.
+          </AlertDescription>
+        </Alert>
+        <Link href="/dashboard" className="mt-4">
+          <Button>
+            Return to Dashboard
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -162,7 +182,7 @@ export default function AIAgentPage() {
                 Current Transfer Analysis
               </CardTitle>
               <CardDescription>
-                Analyzing your recent transfer
+                {isLoading ? "Analyzing your transfer..." : "Analysis complete"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,6 +212,7 @@ export default function AIAgentPage() {
                 <div className="flex flex-col items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
                   <p className="text-gray-600">Analyzing transfer for potential risks...</p>
+                  <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
                 </div>
               ) : aiAnalysis ? (
                 <div className={`p-4 rounded-lg ${getRiskStyle(aiAnalysis.risk_assessment).bg} ${getRiskStyle(aiAnalysis.risk_assessment).border}`}>
