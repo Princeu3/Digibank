@@ -2,6 +2,6 @@
   "/ai-agent/page": "app/ai-agent/page.js",
   "/dashboard/page": "app/dashboard/page.js",
   "/link-accounts/page": "app/link-accounts/page.js",
-  "/aoa-agent/page": "app/aoa-agent/page.js",
-  "/ach-transfer/page": "app/ach-transfer/page.js"
+  "/ach-transfer/page": "app/ach-transfer/page.js",
+  "/aoa-agent/page": "app/aoa-agent/page.js"
 }

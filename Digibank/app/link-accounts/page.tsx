@@ -481,7 +481,7 @@ export default function LinkAccounts() {
           <CardFooter className="flex flex-col items-start text-sm text-gray-500">
             <p className="flex items-center mb-2">
               <ExternalLink className="h-4 w-4 mr-2" />
-              Your bank credentials are securely handled by our trusted partner, Plaid.
+              Your bank credentials are securely handled.
             </p>
             <p>We never store your banking username or password.</p>
           </CardFooter>

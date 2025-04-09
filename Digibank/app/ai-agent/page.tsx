@@ -134,9 +134,23 @@ export default function AIAgentPage() {
   // Show loading state during initial load
   if (isInitialLoad) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-        <p className="text-gray-600">Initializing AI Agent Interface...</p>
+      <div className="flex flex-col items-center min-h-full py-8">
+        <div className="w-full max-w-4xl p-4">
+          <div className="flex items-center mb-8">
+            <Link href="/dashboard" className="mr-4">
+              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold">AI Agent Interface</h1>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+              <p className="text-gray-600">Initializing AI Agent Interface...</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -144,19 +158,33 @@ export default function AIAgentPage() {
   // Show error state if no current transfer and no history
   if (!currentTransfer && transferHistory.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Alert className="w-full max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No Transfer to Analyze</AlertTitle>
-          <AlertDescription>
-            Please initiate a transfer from the dashboard to use the AI Agent.
-          </AlertDescription>
-        </Alert>
-        <Link href="/dashboard" className="mt-4">
-          <Button>
-            Return to Dashboard
-          </Button>
-        </Link>
+      <div className="flex flex-col items-center min-h-full py-8">
+        <div className="w-full max-w-4xl p-4">
+          <div className="flex items-center mb-8">
+            <Link href="/dashboard" className="mr-4">
+              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold">AI Agent Interface</h1>
+          </div>
+          <Card>
+            <CardContent className="py-8">
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No Transfer to Analyze</AlertTitle>
+                <AlertDescription>
+                  Please initiate a transfer from the dashboard to use the AI Agent.
+                </AlertDescription>
+              </Alert>
+              <Link href="/dashboard">
+                <Button>
+                  Return to Dashboard
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
