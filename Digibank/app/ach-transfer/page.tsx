@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, AlertCircle, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import AIAgentFeedback from "@/components/ai-agent-feedback";
 import { AgentResponse } from "@/lib/ai-agent";
 import { useAgentLogging } from "@/lib/ai-agent-client";
+import { useRouter } from "next/navigation";
 
 // Account service for fetching linked accounts
 const accountService = {
@@ -68,6 +68,7 @@ const accountService = {
 export default function ACHTransfer() {
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
   const { logAgentActivity } = useAgentLogging(user?.id || '');
   
   // State for linked accounts and loading
@@ -88,31 +89,44 @@ export default function ACHTransfer() {
 
   const hasLinkedAccounts = linkedAccounts.length > 0;
 
-  // Fetch linked accounts when component mounts
+  // Load accounts and listen for updates
   useEffect(() => {
-    async function fetchAccounts() {
-      if (!user) return;
-      
+    if (!user?.id) return;
+
+    const loadAccounts = () => {
       try {
-        setIsLoading(true);
-        const accounts = await accountService.getAccounts(user.id);
+        const accounts = JSON.parse(localStorage.getItem(`accounts-${user.id}`) || '[]');
         setLinkedAccounts(accounts);
-        setLoadError("");
       } catch (error) {
-        console.error("Failed to load accounts:", error);
-        setLoadError("Failed to load your linked accounts. Please try again.");
+        console.error('Error loading accounts:', error);
         toast({
-          title: "Error loading accounts",
-          description: "We couldn't load your linked accounts. Please refresh and try again.",
+          title: "Error",
+          description: "Failed to load your accounts. Please try again.",
           variant: "destructive"
         });
       } finally {
         setIsLoading(false);
       }
-    }
-    
-    fetchAccounts();
-  }, [user, toast]);
+    };
+
+    // Initial load
+    loadAccounts();
+
+    // Listen for account updates
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === `accounts-${user.id}` || e.key === 'accounts-updated') {
+        loadAccounts();
+      }
+    };
+
+    // Listen for storage events from other tabs
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [user?.id, toast]);
 
   // Function to analyze transfer with AI agent
   const analyzeTransferWithAI = async (transferData) => {
@@ -158,40 +172,25 @@ export default function ACHTransfer() {
     }
   };
 
-  // Handle dismissing AI feedback
-  const dismissAiFeedback = () => {
-    setAiAnalysis(null);
-  };
-
   // Handle transfer submission
   const handleTransfer = async (e) => {
     e.preventDefault();
-    if (!user || !hasLinkedAccounts || !fromAccount || !toAccount || !amount) return;
-    
-    // Validate amount
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid transfer amount greater than zero.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Prevent transferring to the same account
-    if (fromAccount === toAccount) {
-      toast({
-        title: "Invalid transfer",
-        description: "You cannot transfer funds to the same account.",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!user) return;
     
     setIsSubmitting(true);
     
     try {
+      // Validate amount
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        toast({
+          title: "Invalid amount",
+          description: "Please enter a valid amount greater than zero.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       // Get account details for the record
       const fromAccountDetails = linkedAccounts.find(acc => `account-${acc.id}` === fromAccount);
       const toAccountDetails = linkedAccounts.find(acc => `account-${acc.id}` === toAccount);
@@ -216,20 +215,12 @@ export default function ACHTransfer() {
       // Save the transfer record
       await accountService.saveTransfer(user.id, transferData);
       
-      // Trigger AI analysis
-      await analyzeTransferWithAI(transferData);
+      // Store transfer data in sessionStorage instead of localStorage
+      sessionStorage.setItem('pending-transfer', JSON.stringify(transferData));
       
-      // Show success message
-      toast({
-        title: "Transfer initiated",
-        description: `$${amountNum.toFixed(2)} is being transferred from ${fromAccountDetails.name} to ${toAccountDetails.name}. This may take 1-3 business days to complete.`,
-      });
+      // Use router.push for smoother transition
+      router.push('/ai-agent');
       
-      // Reset form
-      setFromAccount("");
-      setToAccount("");
-      setAmount("");
-      setMemo("");
     } catch (error) {
       toast({
         title: "Transfer failed",
@@ -270,148 +261,141 @@ export default function ACHTransfer() {
           </Alert>
         )}
         
-        {(isAiAnalyzing || aiAnalysis) && (
-          <AIAgentFeedback 
-            feedback={aiAnalysis} 
-            isLoading={isAiAnalyzing} 
-            onClose={dismissAiFeedback} 
-          />
-        )}
-
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ArrowRightLeft className="mr-3 h-6 w-6 text-green-600" />
-              Transfer Funds
-            </CardTitle>
-            <CardDescription>Move money between your linked accounts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8">
-                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-current border-r-transparent" role="status">
-                  <span className="sr-only">Loading...</span>
+        {hasLinkedAccounts && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Transfer Details</CardTitle>
+              <CardDescription>
+                Enter the details for your ACH transfer
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-current border-r-transparent" role="status">
+                    <span className="sr-only">Loading...</span>
+                  </div>
+                  <p className="mt-2 text-gray-600">Loading your accounts...</p>
                 </div>
-                <p className="mt-2 text-gray-600">Loading your accounts...</p>
-              </div>
-            ) : loadError ? (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{loadError}</AlertDescription>
-              </Alert>
-            ) : (
-              <form className="space-y-6" onSubmit={handleTransfer}>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="from-account">From Account</Label>
-                    <Select 
-                      disabled={!hasLinkedAccounts || isSubmitting}
-                      value={fromAccount}
-                      onValueChange={setFromAccount}
-                    >
-                      <SelectTrigger id="from-account">
-                        <SelectValue placeholder="Select source account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {linkedAccounts.map(account => (
-                          <SelectItem key={account.id} value={`account-${account.id}`}>
-                            {account.name} - {account.accountType} ({account.accountNumber})
-                          </SelectItem>
-                        ))}
-                        <div className="py-2 px-2 border-t border-gray-100 mt-1">
-                          <Link href="/link-accounts" className="flex items-center text-blue-600 text-sm hover:underline">
-                            <ExternalLink className="mr-2 h-3 w-3" />
-                            Manage linked accounts
-                          </Link>
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="to-account">To Account</Label>
-                    <Select 
-                      disabled={!hasLinkedAccounts || isSubmitting}
-                      value={toAccount}
-                      onValueChange={setToAccount}
-                    >
-                      <SelectTrigger id="to-account">
-                        <SelectValue placeholder="Select destination account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {linkedAccounts.map(account => (
-                          <SelectItem key={account.id} value={`account-${account.id}`}>
-                            {account.name} - {account.accountType} ({account.accountNumber})
-                          </SelectItem>
-                        ))}
-                        <div className="py-2 px-2 border-t border-gray-100 mt-1">
-                          <Link href="/link-accounts" className="flex items-center text-blue-600 text-sm hover:underline">
-                            <ExternalLink className="mr-2 h-3 w-3" />
-                            Add another account
-                          </Link>
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount</Label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <span className="text-gray-500">$</span>
-                      </div>
-                      <Input 
-                        id="amount" 
-                        type="number" 
-                        placeholder="0.00" 
-                        className="pl-8" 
+              ) : loadError ? (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{loadError}</AlertDescription>
+                </Alert>
+              ) : (
+                <form className="space-y-6" onSubmit={handleTransfer}>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="from-account">From Account</Label>
+                      <Select 
                         disabled={!hasLinkedAccounts || isSubmitting}
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        step="0.01"
-                        min="0.01"
+                        value={fromAccount}
+                        onValueChange={setFromAccount}
+                      >
+                        <SelectTrigger id="from-account">
+                          <SelectValue placeholder="Select source account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {linkedAccounts.map(account => (
+                            <SelectItem key={account.id} value={`account-${account.id}`}>
+                              {account.name} - {account.accountType} ({account.accountNumber})
+                            </SelectItem>
+                          ))}
+                          <div className="py-2 px-2 border-t border-gray-100 mt-1">
+                            <Link href="/link-accounts" className="flex items-center text-blue-600 text-sm hover:underline">
+                              <ExternalLink className="mr-2 h-3 w-3" />
+                              Manage linked accounts
+                            </Link>
+                          </div>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="to-account">To Account</Label>
+                      <Select 
+                        disabled={!hasLinkedAccounts || isSubmitting}
+                        value={toAccount}
+                        onValueChange={setToAccount}
+                      >
+                        <SelectTrigger id="to-account">
+                          <SelectValue placeholder="Select destination account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {linkedAccounts.map(account => (
+                            <SelectItem key={account.id} value={`account-${account.id}`}>
+                              {account.name} - {account.accountType} ({account.accountNumber})
+                            </SelectItem>
+                          ))}
+                          <div className="py-2 px-2 border-t border-gray-100 mt-1">
+                            <Link href="/link-accounts" className="flex items-center text-blue-600 text-sm hover:underline">
+                              <ExternalLink className="mr-2 h-3 w-3" />
+                              Add another account
+                            </Link>
+                          </div>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount</Label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          <span className="text-gray-500">$</span>
+                        </div>
+                        <Input 
+                          id="amount" 
+                          type="number" 
+                          placeholder="0.00" 
+                          className="pl-8" 
+                          disabled={!hasLinkedAccounts || isSubmitting}
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          step="0.01"
+                          min="0.01"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="memo">Memo (Optional)</Label>
+                      <Input 
+                        id="memo" 
+                        placeholder="Add a note" 
+                        disabled={!hasLinkedAccounts || isSubmitting}
+                        value={memo}
+                        onChange={(e) => setMemo(e.target.value)}
                       />
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="memo">Memo (Optional)</Label>
-                    <Input 
-                      id="memo" 
-                      placeholder="Add a note" 
-                      disabled={!hasLinkedAccounts || isSubmitting}
-                      value={memo}
-                      onChange={(e) => setMemo(e.target.value)}
-                    />
+                  
+                  <div className="flex justify-end space-x-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setFromAccount("");
+                        setToAccount("");
+                        setAmount("");
+                        setMemo("");
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={!hasLinkedAccounts || !fromAccount || !toAccount || !amount || isSubmitting}
+                    >
+                      {isSubmitting ? "Processing..." : "Transfer Funds"}
+                    </Button>
                   </div>
-                </div>
-                
-                <div className="flex justify-end space-x-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setFromAccount("");
-                      setToAccount("");
-                      setAmount("");
-                      setMemo("");
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={!hasLinkedAccounts || !fromAccount || !toAccount || !amount || isSubmitting}
-                  >
-                    {isSubmitting ? "Processing..." : "Transfer Funds"}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

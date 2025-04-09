@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import { AccountDetails } from "@/lib/aoa-agent";
 
 // API service for account operations
 const accountService = {
@@ -103,6 +104,7 @@ const accountService = {
 
 export default function LinkAccounts() {
   const { user } = useUser();
+  const router = useRouter();
   const { toast } = useToast();
   
   // State for linked accounts
@@ -117,10 +119,12 @@ export default function LinkAccounts() {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
   // State for form inputs
-  const [bankName, setBankName] = useState("");
-  const [accountType, setAccountType] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [routingNumber, setRoutingNumber] = useState("");
+  const [formData, setFormData] = useState<AccountDetails>({
+    bankName: "",
+    accountType: "Checking",
+    accountNumber: "",
+    routingNumber: ""
+  });
   const [bankHolderName, setBankHolderName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -154,78 +158,43 @@ export default function LinkAccounts() {
 
   // Reset form fields
   const resetForm = () => {
-    setBankName("");
-    setAccountType("");
-    setAccountNumber("");
-    setRoutingNumber("");
+    setFormData({
+      bankName: "",
+      accountType: "Checking",
+      accountNumber: "",
+      routingNumber: ""
+    });
     setBankHolderName("");
     setFormError("");
   };
 
-  // Add account manually
-  const handleManualAdd = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    
-    setIsSubmitting(true);
-    setFormError("");
-    
-    // Validate inputs
-    if (!bankName.trim() || !accountType || !accountNumber.trim() || !routingNumber.trim() || !bankHolderName.trim()) {
-      setFormError("All fields are required");
-      setIsSubmitting(false);
-      return;
-    }
-    
-    // Simple validation for account number and routing number
-    if (!/^\d+$/.test(accountNumber) || accountNumber.length < 8) {
-      setFormError("Please enter a valid account number (numbers only)");
-      setIsSubmitting(false);
-      return;
-    }
-    
-    if (!/^\d{9}$/.test(routingNumber)) {
-      setFormError("Routing number must be 9 digits");
-      setIsSubmitting(false);
-      return;
-    }
-    
+    setIsLoading(true);
+
     try {
-      const maskedNumber = "****" + accountNumber.slice(-4);
+      // Store the account data in sessionStorage for the AOA Agent
+      sessionStorage.setItem('pending-account', JSON.stringify(formData));
       
-      // Save to backend
-      const newAccount = await accountService.addAccount(user.id, {
-        name: bankName,
-        accountType: accountType,
-        accountNumber: maskedNumber,
-        routingNumber: routingNumber // In a real app, you'd encrypt this
-      });
-      
-      // Update local state
-      setLinkedAccounts([...linkedAccounts, newAccount]);
-      
-      // Show success message
+      // Redirect to the AOA Agent page
+      router.push('/aoa-agent');
+    } catch (error) {
+      console.error("Failed to link account:", error);
       toast({
-        title: "Account linked successfully",
-        description: `${bankName} (${accountType}) has been added to your linked accounts.`,
-        variant: "default"
-      });
-      
-      // Reset form and close dialog
-      resetForm();
-      setIsAddAccountOpen(false);
-    } catch (err) {
-      setFormError("Failed to link account. Please try again.");
-      toast({
-        title: "Error linking account",
-        description: "We couldn't link your account. Please try again.",
+        title: "Error",
+        description: "Failed to link your account. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
-  
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   // Remove account
   const confirmRemoveAccount = (accountId) => {
     const account = linkedAccounts.find(acc => acc.id === accountId);
@@ -311,7 +280,7 @@ export default function LinkAccounts() {
                           <div>
                             <h3 className="font-medium">{account.name}</h3>
                             <p className="text-sm text-gray-500">
-                              {account.accountType} • {account.accountNumber}
+                              {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)} • {account.accountNumber}
                             </p>
                           </div>
                         </div>
@@ -359,7 +328,7 @@ export default function LinkAccounts() {
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <form onSubmit={handleManualAdd}>
+                  <form onSubmit={handleSubmit}>
                     {formError && (
                       <Alert variant="destructive" className="mb-4">
                         <AlertCircle className="h-4 w-4" />
@@ -383,24 +352,28 @@ export default function LinkAccounts() {
                       <div className="space-y-2">
                         <Label htmlFor="bank-name">Bank Name</Label>
                         <Input 
-                          id="bank-name" 
+                          id="bank-name"
+                          name="bankName"
                           placeholder="Enter bank name"
-                          value={bankName}
-                          onChange={(e) => setBankName(e.target.value)}
+                          value={formData.bankName}
+                          onChange={handleInputChange}
                           disabled={isSubmitting}
                         />
                       </div>
                       
                       <div className="space-y-2">
                         <Label htmlFor="account-type">Account Type</Label>
-                        <Select value={accountType} onValueChange={setAccountType} disabled={isSubmitting}>
+                        <Select 
+                          value={formData.accountType} 
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, accountType: value }))} 
+                          disabled={isSubmitting}
+                        >
                           <SelectTrigger id="account-type">
                             <SelectValue placeholder="Select account type" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Checking">Checking</SelectItem>
-                            <SelectItem value="Savings">Savings</SelectItem>
-                            <SelectItem value="Investment">Investment</SelectItem>
+                            <SelectItem value="checking">Checking</SelectItem>
+                            <SelectItem value="savings">Savings</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -408,10 +381,14 @@ export default function LinkAccounts() {
                       <div className="space-y-2">
                         <Label htmlFor="account-number">Account Number</Label>
                         <Input 
-                          id="account-number" 
+                          id="account-number"
+                          name="accountNumber"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           placeholder="Enter account number"
-                          value={accountNumber}
-                          onChange={(e) => setAccountNumber(e.target.value)}
+                          value={formData.accountNumber}
+                          onChange={handleInputChange}
                           disabled={isSubmitting}
                         />
                       </div>
@@ -419,10 +396,14 @@ export default function LinkAccounts() {
                       <div className="space-y-2">
                         <Label htmlFor="routing-number">Routing Number</Label>
                         <Input 
-                          id="routing-number" 
-                          placeholder="9-digit routing number"
-                          value={routingNumber}
-                          onChange={(e) => setRoutingNumber(e.target.value)}
+                          id="routing-number"
+                          name="routingNumber"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="Enter routing number"
+                          value={formData.routingNumber}
+                          onChange={handleInputChange}
                           disabled={isSubmitting}
                         />
                       </div>
@@ -464,7 +445,7 @@ export default function LinkAccounts() {
                             <div>
                               <h3 className="font-medium">{accountToRemove.name}</h3>
                               <p className="text-sm text-gray-500">
-                                {accountToRemove.accountType} • {accountToRemove.accountNumber}
+                                {accountToRemove.accountType.charAt(0).toUpperCase() + accountToRemove.accountType.slice(1)} • {accountToRemove.accountNumber}
                               </p>
                             </div>
                           </div>

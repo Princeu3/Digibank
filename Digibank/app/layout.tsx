@@ -34,7 +34,7 @@ export default function RootLayout({
         signInForceRedirectUrl = "/dashboard"
         signUpForceRedirectUrl = "/dashboard"
       >
-        <body className="bg-white">
+        <body className="bg-white" suppressHydrationWarning>
           {/* Modern Header */}
           <header className="sticky top-0 z-40 backdrop-blur-sm bg-white/80 py-4 border-b border-gray-100">
             <div className="container mx-auto px-6 flex justify-between items-center">
