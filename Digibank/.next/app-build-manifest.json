@@ -21,21 +21,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/link-accounts/page.js"
     ],
-    "/ach-transfer/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/ach-transfer/page.js"
-    ],
-    "/api/ai-agent/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/ai-agent/route.js"
-    ],
-    "/ai-agent/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/ai-agent/page.js"
-    ],
     "/aoa-agent/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -45,6 +30,21 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/aoa-agent/route.js"
+    ],
+    "/ach-transfer/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/ach-transfer/page.js"
+    ],
+    "/ai-agent/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/ai-agent/page.js"
+    ],
+    "/api/ai-agent/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/ai-agent/route.js"
     ]
   }
 }

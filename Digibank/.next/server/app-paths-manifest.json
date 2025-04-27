@@ -1,7 +1,10 @@
 {
-  "/ai-agent/page": "app/ai-agent/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
+  "/api/aoa-agent/route": "app/api/aoa-agent/route.js",
+  "/api/ai-agent/route": "app/api/ai-agent/route.js",
   "/link-accounts/page": "app/link-accounts/page.js",
+  "/aoa-agent/page": "app/aoa-agent/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/ai-agent/page": "app/ai-agent/page.js",
   "/ach-transfer/page": "app/ach-transfer/page.js",
-  "/aoa-agent/page": "app/aoa-agent/page.js"
+  "/page": "app/page.js"
 }
