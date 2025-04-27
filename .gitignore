@@ -12,6 +12,7 @@ vendor/
 # Build outputs
 /build
 /dist
+.next
 
 # Log files
 *.log
