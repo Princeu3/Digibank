@@ -8,16 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { AgentResponse } from "@/lib/ai-agent";
-import { useAgentLogging } from "@/lib/ai-agent-client";
+import { AgentResponse as CrewAgentResponse, TransferAgentResponse, transferAgent } from "@/lib/crew-orchestrator";
+import AgentStepsDisplay from "@/components/AgentStepsDisplay";
 
 export default function AIAgentPage() {
   const { user } = useUser();
   const { toast } = useToast();
-  const { logAgentActivity } = useAgentLogging(user?.id || '');
-  
+  const [transferResponse, setTransferResponse] = useState<TransferAgentResponse | null>(null);
+  const [transferSteps, setTransferSteps] = useState<CrewAgentResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<AgentResponse | null>(null);
   const [transferHistory, setTransferHistory] = useState<any[]>([]);
   const [currentTransfer, setCurrentTransfer] = useState<any>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -55,50 +54,28 @@ export default function AIAgentPage() {
   // Function to analyze a transfer with AI
   const analyzeTransfer = async (transferData: any) => {
     setIsLoading(true);
-    
+    setTransferSteps([]);
     try {
-      const response = await fetch('/api/ai-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user!.id,
-          ...transferData
-        })
+      const response = await transferAgent(transferData, step => {
+        setTransferSteps(prev => [...prev, step]);
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to analyze transfer');
-      }
-      
-      const analysisResult = await response.json();
-      setAiAnalysis(analysisResult);
-      
-      // Log the AI agent activity
-      logAgentActivity(transferData, analysisResult);
-      
-      // Update transfer history
+      setTransferResponse(response);
+      // Update transfer history with final decision only
       setTransferHistory(prev => [{
         timestamp: new Date().toISOString(),
         transferData,
-        agentResponse: analysisResult
+        agentResponse: {
+          risk_assessment: response.finalDecision.approved ? 'low' : 'high',
+          reasoning: response.finalDecision.rationale,
+          flags: [],
+          recommendation: response.finalDecision.rationale,
+          next_steps: []
+        }
       }, ...prev]);
-      
-      // Show toast for high risk transfers
-      if (analysisResult.risk_assessment === 'high') {
-        toast({
-          title: "High Risk Transfer Detected",
-          description: analysisResult.recommendation,
-          variant: "destructive"
-        });
-      }
-      
+      toast({ title: "Transfer Result", description: response.finalDecision.rationale });
     } catch (error) {
-      console.error("AI agent analysis failed:", error);
-      toast({
-        title: "AI analysis failed",
-        description: "We couldn't analyze this transfer. Please try again.",
-        variant: "destructive"
-      });
+      console.error("Transfer workflow failed:", error);
+      toast({ title: "Error", description: "Transfer workflow failed.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +187,7 @@ export default function AIAgentPage() {
                 Current Transfer Analysis
               </CardTitle>
               <CardDescription>
-                {isLoading ? "Analyzing your transfer..." : "Analysis complete"}
+                {isLoading ? "Analyzing transfer workflow..." : "Analysis complete"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -236,43 +213,19 @@ export default function AIAgentPage() {
                 </div>
               </div>
 
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-                  <p className="text-gray-600">Analyzing transfer for potential risks...</p>
-                  <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
-                </div>
-              ) : aiAnalysis ? (
-                <div className={`p-4 rounded-lg ${getRiskStyle(aiAnalysis.risk_assessment).bg} ${getRiskStyle(aiAnalysis.risk_assessment).border}`}>
-                  <div className="flex items-center gap-2 mb-4">
-                    {getRiskStyle(aiAnalysis.risk_assessment).icon}
-                    <h3 className={`text-lg font-semibold ${getRiskStyle(aiAnalysis.risk_assessment).text}`}>
-                      {aiAnalysis.risk_assessment.charAt(0).toUpperCase() + aiAnalysis.risk_assessment.slice(1)} Risk Assessment
-                    </h3>
-                  </div>
-                  <p className="mb-4">{aiAnalysis.reasoning}</p>
-                  
-                  {aiAnalysis.flags.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-medium mb-2">Potential Concerns:</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {aiAnalysis.flags.map((flag, index) => (
-                          <li key={index}>{flag}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <h4 className="font-medium mb-2">Recommended Actions:</h4>
-                    <ul className="list-disc list-inside space-y-1">
-                      {aiAnalysis.next_steps.map((step, index) => (
-                        <li key={index}>{step}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : null}
+              <AgentStepsDisplay
+                agentTitle="Transfer Agent"
+                steps={transferSteps}
+                finalDecision={transferResponse?.finalDecision}
+                isLoading={isLoading}
+                loadingMessage="Analyzing transfer workflow..."
+                resultTitle="Transfer Analysis"
+                onDone={() => {
+                  setTransferResponse(null);
+                  setTransferSteps([]);
+                  setCurrentTransfer(null);
+                }}
+              />
             </CardContent>
           </Card>
         )}
@@ -326,4 +279,4 @@ export default function AIAgentPage() {
       </div>
     </div>
   );
-} 
+}

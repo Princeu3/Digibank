@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { AgentResponse } from "@/lib/ai-agent";
-import { useAgentLogging } from "@/lib/ai-agent-client";
 import { useRouter } from "next/navigation";
 
 // Account service for fetching linked accounts
@@ -69,7 +68,6 @@ export default function ACHTransfer() {
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
-  const { logAgentActivity } = useAgentLogging(user?.id || '');
   
   // State for linked accounts and loading
   const [linkedAccounts, setLinkedAccounts] = useState([]);
@@ -148,9 +146,6 @@ export default function ACHTransfer() {
       
       const analysisResult = await response.json();
       setAiAnalysis(analysisResult);
-      
-      // Log the AI agent activity using the hook
-      logAgentActivity(transferData, analysisResult);
       
       // If high risk, show a toast alert
       if (analysisResult.risk_assessment === 'high') {

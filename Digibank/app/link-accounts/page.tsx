@@ -22,7 +22,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { AccountDetails } from "@/lib/aoa-agent";
+import { linkAccountsAgent, LinkAccountsResponse, AgentResponse as CrewAgentResponse } from "@/lib/crew-orchestrator";
+import AgentStepsDisplay from "@/components/AgentStepsDisplay";
+
+// Shared account type for client
+interface AccountDetails {
+  userId: string;
+  bankName: string;
+  accountType: string;
+  accountNumber: string;
+  routingNumber: string;
+}
+
+// Form only needs account fields; userId is passed separately to orchestrator
+type LinkFormDetails = Omit<AccountDetails, 'userId'>;
 
 // API service for account operations
 const accountService = {
@@ -111,7 +124,7 @@ export default function LinkAccounts() {
   const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-
+  
   const hasLinkedAccounts = linkedAccounts.length > 0;
   
   // State for dialog controls
@@ -119,7 +132,7 @@ export default function LinkAccounts() {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
   // State for form inputs
-  const [formData, setFormData] = useState<AccountDetails>({
+  const [formData, setFormData] = useState<LinkFormDetails>({
     bankName: "",
     accountType: "Checking",
     accountNumber: "",
@@ -129,7 +142,9 @@ export default function LinkAccounts() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [accountToRemove, setAccountToRemove] = useState(null);
-
+  const [linkResponse, setLinkResponse] = useState<LinkAccountsResponse | null>(null);
+  const [linkSteps, setLinkSteps] = useState<CrewAgentResponse[]>([]);
+  
   // Fetch linked accounts when component mounts
   useEffect(() => {
     async function fetchAccounts() {
@@ -170,23 +185,36 @@ export default function LinkAccounts() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
+    if (!user) return;
+    setIsSubmitting(true);
+    setLinkSteps([]);
     try {
-      // Store the account data in sessionStorage for the AOA Agent
-      sessionStorage.setItem('pending-account', JSON.stringify(formData));
-      
-      // Redirect to the AOA Agent page
-      router.push('/aoa-agent');
+      const response = await linkAccountsAgent(user.id, step => {
+        setLinkSteps(prev => [...prev, step]);
+      });
+      setLinkResponse(response);
+      toast({
+        title: "Link Accounts Results",
+        description: response.finalDecision.rationale,
+      });
+      if (response.finalDecision.success) {
+        const newAccount = await accountService.addAccount(user.id, {
+          name: formData.bankName,
+          accountType: formData.accountType,
+          accountNumber: '****' + formData.accountNumber.slice(-4),
+        });
+        setLinkedAccounts(prev => [...prev, newAccount]);
+        resetForm();
+      }
     } catch (error) {
-      console.error("Failed to link account:", error);
+      console.error("Error linking accounts:", error);
       toast({
         title: "Error",
-        description: "Failed to link your account. Please try again.",
-        variant: "destructive"
+        description: "Failed to link accounts. Please try again.",
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -328,101 +356,116 @@ export default function LinkAccounts() {
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <form onSubmit={handleSubmit}>
-                    {formError && (
-                      <Alert variant="destructive" className="mb-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Error</AlertTitle>
-                        <AlertDescription>{formError}</AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="bank-holder-name">Account Holder Name</Label>
-                        <Input 
-                          id="bank-holder-name" 
-                          placeholder="Enter account holder name"
-                          value={bankHolderName}
-                          onChange={(e) => setBankHolderName(e.target.value)}
-                          disabled={isSubmitting}
-                        />
-                      </div>
+                  {/* Linking workflow interface */}
+                  {!linkSteps.length && !linkResponse && (
+                    <form onSubmit={handleSubmit}>
+                      {formError && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{formError}</AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="bank-holder-name">Account Holder Name</Label>
+                          <Input 
+                            id="bank-holder-name" 
+                            placeholder="Enter account holder name"
+                            value={bankHolderName}
+                            onChange={(e) => setBankHolderName(e.target.value)}
+                            disabled={isSubmitting}
+                          />
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="bank-name">Bank Name</Label>
-                        <Input 
-                          id="bank-name"
-                          name="bankName"
-                          placeholder="Enter bank name"
-                          value={formData.bankName}
-                          onChange={handleInputChange}
-                          disabled={isSubmitting}
-                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="bank-name">Bank Name</Label>
+                          <Input 
+                            id="bank-name"
+                            name="bankName"
+                            placeholder="Enter bank name"
+                            value={formData.bankName}
+                            onChange={handleInputChange}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="account-type">Account Type</Label>
+                          <Select 
+                            value={formData.accountType} 
+                            onValueChange={(value) => setFormData(prev => ({ ...prev, accountType: value }))} 
+                            disabled={isSubmitting}
+                          >
+                            <SelectTrigger id="account-type">
+                              <SelectValue placeholder="Select account type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="checking">Checking</SelectItem>
+                              <SelectItem value="savings">Savings</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="account-number">Account Number</Label>
+                          <Input 
+                            id="account-number"
+                            name="accountNumber"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="Enter account number"
+                            value={formData.accountNumber}
+                            onChange={handleInputChange}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="routing-number">Routing Number</Label>
+                          <Input 
+                            id="routing-number"
+                            name="routingNumber"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            placeholder="Enter routing number"
+                            value={formData.routingNumber}
+                            onChange={handleInputChange}
+                            disabled={isSubmitting}
+                          />
+                        </div>
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="account-type">Account Type</Label>
-                        <Select 
-                          value={formData.accountType} 
-                          onValueChange={(value) => setFormData(prev => ({ ...prev, accountType: value }))} 
+                      <DialogFooter className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          type="button"
+                          onClick={() => setIsAddAccountOpen(false)}
                           disabled={isSubmitting}
                         >
-                          <SelectTrigger id="account-type">
-                            <SelectValue placeholder="Select account type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="checking">Checking</SelectItem>
-                            <SelectItem value="savings">Savings</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="account-number">Account Number</Label>
-                        <Input 
-                          id="account-number"
-                          name="accountNumber"
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="Enter account number"
-                          value={formData.accountNumber}
-                          onChange={handleInputChange}
-                          disabled={isSubmitting}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="routing-number">Routing Number</Label>
-                        <Input 
-                          id="routing-number"
-                          name="routingNumber"
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="Enter routing number"
-                          value={formData.routingNumber}
-                          onChange={handleInputChange}
-                          disabled={isSubmitting}
-                        />
-                      </div>
-                    </div>
-                    
-                    <DialogFooter className="mt-4">
-                      <Button 
-                        variant="outline" 
-                        type="button"
-                        onClick={() => setIsAddAccountOpen(false)}
-                        disabled={isSubmitting}
-                      >
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Linking..." : "Link Account"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                          {isSubmitting ? "Linking..." : "Link Account"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  )}
+                  <AgentStepsDisplay
+                    steps={linkSteps}
+                    finalDecision={linkResponse?.finalDecision}
+                    isLoading={isSubmitting}
+                    loadingMessage="Linking accounts..."
+                    resultTitle="Link Accounts Results"
+                    onDone={() => {
+                      setIsAddAccountOpen(false);
+                      setLinkResponse(null);
+                      setLinkSteps([]);
+                    }}
+                  />
                 </DialogContent>
               </Dialog>
               
@@ -502,7 +545,7 @@ export default function LinkAccounts() {
             <div className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg border border-green-100">
                 <div className="flex items-start">
-                  <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="text-green-600 h-5 w-5" />
                   <div>
                     <h4 className="font-medium text-green-800">Accounts Linked Successfully</h4>
                     <p className="text-sm text-green-700 mt-1">
@@ -548,7 +591,50 @@ export default function LinkAccounts() {
             </CardFooter>
           )}
         </Card>
+
+        {linkResponse && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Link Accounts Results</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {linkResponse.steps.map((step) => (
+                <div key={step.agentName} className="flex items-center gap-2">
+                  {step.success ? (
+                    <CheckCircle className="text-green-600 h-5 w-5" />
+                  ) : (
+                    <AlertCircle className="text-red-600 h-5 w-5" />
+                  )}
+                  <p>
+                    <strong>{step.agentName}:</strong> {step.details}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+            <CardFooter>
+              <p>
+                <strong>Decision:</strong> {linkResponse.finalDecision.rationale}
+              </p>
+            </CardFooter>
+          </Card>
+        )}
+        
+        {linkSteps.length > 0 && !linkResponse && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Linking in Progress...</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {linkSteps.map(step => (
+                <div key={step.agentName} className="flex items-center gap-2">
+                  {step.success ? <CheckCircle className="text-green-600 h-5 w-5" /> : <AlertCircle className="text-red-600 h-5 w-5" />}
+                  <p><strong>{step.agentName}:</strong> {step.details}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
-} 
+}
