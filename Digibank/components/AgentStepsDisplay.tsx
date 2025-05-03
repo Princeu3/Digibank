@@ -74,9 +74,22 @@ export default function AgentStepsDisplay({
         <CardContent className="space-y-2">
           {/* Completed steps */}
           {visibleSteps.map(step => (
-            <div key={step.agentName} className="flex items-center gap-2">
-              {step.success ? <CheckCircle className="text-green-600 h-5 w-5" /> : <AlertCircle className="text-red-600 h-5 w-5" />}
-              <p><strong>{step.agentName}:</strong> {step.details}</p>
+            <div key={step.agentName}>
+              <div className="flex items-center gap-2">
+                {step.success ? <CheckCircle className="text-green-600 h-5 w-5" /> : <AlertCircle className="text-red-600 h-5 w-5" />}
+                <p><strong>{step.agentName}:</strong> {step.details}</p>
+              </div>
+              {/* Render subSteps if present */}
+              {step.data?.subSteps && (
+                <div className="ml-8 mt-1">
+                  {step.data.subSteps.map((sub: any) => (
+                    <div key={sub.agentName} className="flex items-center gap-2 text-gray-600 text-sm">
+                      {sub.success ? <CheckCircle className="text-green-400 h-4 w-4" /> : <AlertCircle className="text-red-400 h-4 w-4" />}
+                      <span><strong>{sub.agentName}:</strong> {sub.details}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {/* Processing or Decision */}

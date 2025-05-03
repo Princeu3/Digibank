@@ -91,10 +91,10 @@ async function riskAnalysisAgent(data: TransferDetails): Promise<AgentResponse> 
   return { agentName: 'RiskAnalysis', success: risk === 'low', details, data: { risk } };
 }
 
-async function manualVerificationAgent(data: any): Promise<AgentResponse> {
+async function manualVerificationAgent(data: any, forceResult?: boolean): Promise<AgentResponse> {
   await delay(200);
-  // Simulate manual verification outcome
-  const verified = Math.random() < 0.5;
+  // If forceResult is specified, use it; otherwise randomize
+  const verified = typeof forceResult === 'boolean' ? forceResult : Math.random() < 0.5;
   const details = verified
     ? 'Manual verification passed'
     : 'Manual verification flagged issues';
@@ -118,6 +118,134 @@ export async function transferAgent(
 ): Promise<TransferAgentResponse> {
   const steps: AgentResponse[] = [];
 
+  // Helper to normalize bank names (remove spaces, lowercase)
+  const normalize = (name: string) => name?.replace(/\s+/g, '').toLowerCase();
+
+  // Special case: Chase to Wells Fargo manual verification override
+  const isChaseToWellsFargo =
+    normalize(transferData.fromAccount?.name) === 'chase' &&
+    normalize(transferData.toAccount?.name) === 'wellsfargo';
+
+  if (isChaseToWellsFargo) {
+    // Always show all steps for demo/mock
+    const amountNum = parseFloat(transferData.amount);
+    let approved = false;
+    let rationale = '';
+    if (amountNum <= 500) {
+      approved = true;
+      rationale = 'All verification steps passed. Transaction approved.';
+    } else if (amountNum > 1000) {
+      approved = false;
+      rationale = 'Verification steps flagged issues. Transaction requires review or was denied.';
+    } else {
+      // $500 < amount ≤ $1000 (default: approve, clarify if needed)
+      approved = true;
+      rationale = 'All verification steps passed. Transaction approved.';
+    }
+
+    // 1. Risk analysis
+    const riskStep: AgentResponse = {
+      agentName: 'RiskAnalysis',
+      success: true,
+      details: 'Risk analysis mock: low',
+      data: { risk: 'low' }
+    };
+    onStep?.(riskStep);
+    steps.push(riskStep);
+
+    // 2. Manual verification with sub-steps
+    let manualVerificationStep: AgentResponse;
+    if (amountNum > 1000) {
+      // For >$1000, user identity fails, others pass, manual verification fails
+      manualVerificationStep = {
+        agentName: 'ManualVerification',
+        success: false,
+        details: 'Manual verification failed',
+        data: {
+          verified: false,
+          subSteps: [
+            {
+              agentName: 'VerifyUserIdentity',
+              success: false,
+              details: 'User identity verification failed'
+            },
+            {
+              agentName: 'VerifyAccountNumber',
+              success: true,
+              details: 'Account number verified with system of record'
+            },
+            {
+              agentName: 'ContactCustomer',
+              success: false,
+              details: 'Customer was not able to be contacted and failed'
+            }
+          ]
+        }
+      };
+    } else {
+      // For <=$1000, all sub-steps pass, manual verification passes
+      manualVerificationStep = {
+        agentName: 'ManualVerification',
+        success: true,
+        details: 'Manual verification passed',
+        data: {
+          verified: true,
+          subSteps: [
+            {
+              agentName: 'VerifyUserIdentity',
+              success: true,
+              details: 'User identity verified against bank system of record'
+            },
+            {
+              agentName: 'VerifyAccountNumber',
+              success: true,
+              details: 'Account number verified with system of record'
+            },
+            {
+              agentName: 'ContactCustomer',
+              success: true,
+              details: 'Customer contacted and activity verified'
+            }
+          ]
+        }
+      };
+    }
+    onStep?.(manualVerificationStep);
+    steps.push(manualVerificationStep);
+
+    // 7. Banker review
+    const bankerStep: AgentResponse = {
+      agentName: 'BankerReview',
+      success: amountNum > 1000 ? false : true,
+      details: amountNum > 1000 ? 'Banker review denied transfer' : 'Banker review approved transfer',
+      data: { approved: amountNum > 1000 ? false : true }
+    };
+    onStep?.(bankerStep);
+    steps.push(bankerStep);
+
+    // 8. Final approval
+    const finalStep: AgentResponse = {
+      agentName: 'FinalApproval',
+      success: approved && amountNum <= 1000,
+      details: (approved && amountNum <= 1000)
+        ? 'All passed, approving the transaction.'
+        : 'Issues found, transaction not approved.',
+      data: {}
+    };
+    onStep?.(finalStep);
+    steps.push(finalStep);
+
+    return {
+      steps,
+      finalDecision: {
+        approved: approved && amountNum <= 1000,
+        rationale: (approved && amountNum <= 1000)
+          ? 'All verification steps passed. Transaction approved.'
+          : 'Verification steps flagged issues. Transaction requires review or was denied.'
+      }
+    };
+  }
+
   // 1. Risk analysis
   const riskStep = await riskAnalysisAgent(transferData);
   onStep?.(riskStep);
@@ -128,7 +256,8 @@ export async function transferAgent(
 
   if (!riskStep.success) {
     // 2. Manual verification if risk high
-    const manualStep = await manualVerificationAgent(riskStep.data);
+    // For non-Chase→WellsFargo, always pass manual verification (not random)
+    const manualStep = await manualVerificationAgent(riskStep.data, true);
     onStep?.(manualStep);
     steps.push(manualStep);
     finalApproved = manualStep.success;

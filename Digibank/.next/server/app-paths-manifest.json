@@ -1,8 +1,6 @@
 {
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/link-accounts/page": "app/link-accounts/page.js",
-  "/ach-transfer/page": "app/ach-transfer/page.js",
   "/ai-agent/page": "app/ai-agent/page.js",
-  "/page": "app/page.js",
+  "/ach-transfer/page": "app/ach-transfer/page.js",
+  "/link-accounts/page": "app/link-accounts/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }
