@@ -123,7 +123,7 @@ export async function transferAgent(
 
   // Special case: Chase to Wells Fargo manual verification override
   const isChaseToWellsFargo =
-    normalize(transferData.fromAccount?.name) === 'chase' &&
+    normalize(transferData.fromAccount?.name) === 'chasebank' &&
     normalize(transferData.toAccount?.name) === 'wellsfargo';
 
   if (isChaseToWellsFargo) {
